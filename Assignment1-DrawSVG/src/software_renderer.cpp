@@ -109,13 +109,14 @@ void SoftwareRendererImp::draw_line(Line& line) {
 
 void SoftwareRendererImp::draw_polyline(Polyline& polyline) {
   Color c = polyline.style.strokeColor;
+  float w = polyline.style.strokeWidth;
 
   if (c.a != 0) {
     int nPoints = polyline.points.size();
     for (int i = 0; i < nPoints - 1; i++) {
       Vector2D p0 = transform(polyline.points[(i + 0) % nPoints]);
       Vector2D p1 = transform(polyline.points[(i + 1) % nPoints]);
-      rasterize_line(p0.x, p0.y, p1.x, p1.y, c);
+      rasterize_line(p0.x, p0.y, p1.x, p1.y, c, w);
     }
   }
 }
@@ -221,55 +222,37 @@ void SoftwareRendererImp::rasterize_point(float x, float y, Color color) {
 }
 
 void SoftwareRendererImp::rasterize_line(float x0, float y0, float x1, float y1,
-                                         Color color) {
+                                         Color color, float width) {
   // Task 2:
   // Implement line rasterization
-  rasterize_line_bresenham(x0, y0, x1, y1, color);
+  rasterize_line_bresenham(x0, y0, x1, y1, color, width);
 }
 
 void SoftwareRendererImp::rasterize_line_bresenham(float x0, float y0, float x1, float y1,
-                                         Color color) {
+                                                   Color color, float width) {
+  bool steep = abs(x1 - x0) < abs(y1 - y0);
+  if (steep) {  // abs(slope) > 1
+    swap(x0, y0);
+    swap(x1, y1);
+  }
 
-  if (abs(x1 - x0) > abs(y1 - y0)) { // abs(slope) < 1
-    if (x0 > x1) {
-      swap(x0, x1);
-      swap(y0, y1);
-    }
+  if (x0 > x1) {
+    swap(x0, x1);
+    swap(y0, y1);
+  }
 
-    int dx = x1 - x0, dy = y1 - y0, y = y0, eps = 0;
-    int sign = dy > 0 ? 1 : -1;
-    dy = abs(dy);
-
-    for (int x = x0; x <= x1; x++) {  
-      render_target[4 * (x + y * target_w)] = (uint8_t)(color.r * 255);
-      render_target[4 * (x + y * target_w) + 1] = (uint8_t)(color.g * 255);
-      render_target[4 * (x + y * target_w) + 2] = (uint8_t)(color.b * 255);
-      render_target[4 * (x + y * target_w) + 3] = (uint8_t)(color.a * 255);
-      eps += dy;
-      if ((eps << 1) >= dx) {
-        y += sign;
-        eps -= dx;
-      }
-    }
-  } else {
-    if (y0 > y1) {
-      swap(x0, x1);
-      swap(y0, y1);
-    }
-    int dx = x1 - x0, dy = y1 - y0, x = x0, eps = 0;
-    int sign = dx > 0 ? 1 : -1;
-    dx = abs(dx);
-
-    for (int y = y0; y <= y1; y++) {
-      render_target[4 * (x + y * target_w)] = (uint8_t)(color.r * 255);
-      render_target[4 * (x + y * target_w) + 1] = (uint8_t)(color.g * 255);
-      render_target[4 * (x + y * target_w) + 2] = (uint8_t)(color.b * 255);
-      render_target[4 * (x + y * target_w) + 3] = (uint8_t)(color.a * 255);
-      eps += dx;
-      if ((eps << 1) >= dy) {
-        x += sign;
-        eps -= dy;
-      }
+  int dx = x1 - x0, dy = y1 - y0, y = y0, eps = 0;
+  int sign = dy > 0 ? 1 : -1;
+  int ed = sqrt((float)dx * dx + (float)dy * dy);
+  dy = abs(dy);
+  int size = width / 2;
+  for (int x = x0; x <= x1; x++) {
+    if (steep) rasterize_point(y, x, color);
+    else rasterize_point(x, y, color);
+    eps += dy;
+    if ((eps << 1) >= dx) {
+      y += sign;
+      eps -= dx;
     }
   }
 }
