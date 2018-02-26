@@ -119,6 +119,10 @@ class SoftwareRendererImp : public SoftwareRenderer {
                        float x1, float y1,
                        Color color);
 
+  void rasterize_line_bresenham( float x0, float y0,
+                                 float x1, float y1,
+                                 Color color);                      
+
   // rasterize a triangle
   void rasterize_triangle( float x0, float y0,
                            float x1, float y1,
