@@ -338,7 +338,7 @@ void SoftwareRendererImp::rasterize_line_xiaolinwu(float x0, float y0, float x1,
   // handle first endpoint
   xend = round(x1);
   yend = y1 + gradient * (xend - x1);
-  xgap = rfpart(x1 + 0.5);
+  xgap = fpart(x1 + 0.5);
   float xpxl2 = xend;  // this will be used in the main loop
   float ypxl2 = ipart(yend);
   if (steep) {
