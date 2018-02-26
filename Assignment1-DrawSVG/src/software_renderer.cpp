@@ -225,7 +225,7 @@ void SoftwareRendererImp::rasterize_line(float x0, float y0, float x1, float y1,
                                          Color color, float width) {
   // Task 2:
   // Implement line rasterization
-  rasterize_line_bresenham(x0, y0, x1, y1, color, width);
+  rasterize_line_xiaolinwu(x0, y0, x1, y1, color, width);
 }
 
 void SoftwareRendererImp::rasterize_line_bresenham(float x0, float y0, float x1, float y1,
@@ -243,9 +243,7 @@ void SoftwareRendererImp::rasterize_line_bresenham(float x0, float y0, float x1,
 
   int dx = x1 - x0, dy = y1 - y0, y = y0, eps = 0;
   int sign = dy > 0 ? 1 : -1;
-  int ed = sqrt((float)dx * dx + (float)dy * dy);
   dy = abs(dy);
-  int size = width / 2;
   for (int x = x0; x <= x1; x++) {
     if (steep) rasterize_point(y, x, color);
     else rasterize_point(x, y, color);
@@ -253,6 +251,101 @@ void SoftwareRendererImp::rasterize_line_bresenham(float x0, float y0, float x1,
     if ((eps << 1) >= dx) {
       y += sign;
       eps -= dx;
+    }
+  }
+}
+
+inline float ipart(float x) {
+  return floor(x);
+}
+
+inline float round(float x) {
+  return ipart(x + 0.5f);
+}
+
+inline float fpart(float x) {
+  return x - floor(x);
+}
+
+inline float rfpart(float x) {
+  return 1 - fpart(x);
+}
+
+void SoftwareRendererImp::rasterize_line_xiaolinwu(float x0, float y0, float x1, float y1,
+                                                   Color color, float width) {
+  bool steep = abs(x1 - x0) < abs(y1 - y0);
+  if (steep) {  // abs(slope) > 1
+    swap(x0, y0);
+    swap(x1, y1);
+  }
+
+  if (x0 > x1) {
+    swap(x0, x1);
+    swap(y0, y1);
+  }
+
+  float dx = x1 - x0;
+  float dy = y1 - y0;
+  float gradient;
+  if (dx == 0.0f)
+    gradient = 1.0;
+  else
+    gradient = dy / dx;
+
+  // handle first endpoint
+  float xend = round(x0);
+  float yend = y0 + gradient * (xend - x0);
+  float xgap = rfpart(x0 + 0.5);
+  float xpxl1 = xend;  // this will be used in the main loop
+  float ypxl1 = ipart(yend);
+  
+  if (steep) {
+    color.a = rfpart(yend) * xgap;
+    rasterize_point(ypxl1, xpxl1, color);
+    color.a = fpart(yend) * xgap;
+    rasterize_point(ypxl1 + 1, xpxl1, color);
+  } else {
+    color.a = rfpart(yend) * xgap;
+    rasterize_point(xpxl1, ypxl1, color);
+    color.a = fpart(yend) * xgap;
+    rasterize_point(xpxl1, ypxl1 + 1, color);
+  }
+
+  float intery = yend + gradient;  // first y-intersection for the main loop
+
+  // handle first endpoint
+  xend = round(x1);
+  yend = y1 + gradient * (xend - x1);
+  xgap = rfpart(x1 + 0.5);
+  float xpxl2 = xend;  // this will be used in the main loop
+  float ypxl2 = ipart(yend);
+  if (steep) {
+    color.a = rfpart(yend) * xgap;
+    rasterize_point(ypxl2, xpxl2, color);
+    color.a = fpart(yend) * xgap;
+    rasterize_point(ypxl2 + 1, xpxl2, color);
+  } else {
+    color.a = rfpart(yend) * xgap;
+    rasterize_point(xpxl2, ypxl2, color);
+    color.a = fpart(yend) * xgap;
+    rasterize_point(xpxl2, ypxl1 + 1, color);
+  }
+
+  if (steep) {
+    for (int x = xpxl1 + 1; x <= xpxl2 - 1; ++x) {
+      color.a = rfpart(intery);
+      rasterize_point(ipart(intery), x, color);
+      color.a = fpart(intery);
+      rasterize_point(ipart(intery) + 1, x, color);
+      intery += gradient;
+    }
+  } else {
+    for (int x = xpxl1 + 1; x <= xpxl2 - 1; ++x) {
+      color.a = rfpart(intery);
+      rasterize_point(x, ipart(intery), color);
+      color.a = fpart(intery);
+      rasterize_point(x, ipart(intery) + 1, color);
+      intery += gradient;
     }
   }
 }
