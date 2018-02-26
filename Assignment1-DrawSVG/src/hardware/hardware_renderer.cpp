@@ -260,7 +260,7 @@ void HardwareRenderer::rasterize_line(float x0, float y0,
   // Task 1: 
   // Implement line rasterization
   glColor3f(color.r, color.g, color.b);
-  glBegin(GL_LINE);
+  glBegin(GL_LINES);
   glVertex2f(x0, y0);
   glVertex2f(x1, y1);
   glEnd();
