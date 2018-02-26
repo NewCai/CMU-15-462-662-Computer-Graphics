@@ -225,6 +225,28 @@ void SoftwareRendererImp::rasterize_line(float x0, float y0, float x1, float y1,
                                          Color color, float width) {
   // Task 2:
   // Implement line rasterization
+
+#if 0
+  // An possible implementation of drawing with thickness.
+  // TODO: A fast implementaton of fllling rect
+  Vector2D s(x1 - x0, y1 - y0);
+  s /= s.norm();
+  s *= 0.6f;
+  Vector2D p(-s.y, s.x);
+  float xx1 = x0 + p.x;
+  float yy1 = y0 + p.y;
+  float xx2 = x1 + p.x;
+  float yy2 = y1 + p.y;
+  float xx3 = x1 - p.x;
+  float yy3 = y1 - p.y;
+  float xx4 = x0 - p.x;
+  float yy4 = y0 - p.y;
+
+  rasterize_line_xiaolinwu(xx1, yy1, xx2, yy2, color, width);
+  rasterize_line_xiaolinwu(xx2, yy2, xx3, yy3, color, width);
+  rasterize_line_xiaolinwu(xx3, yy3, xx4, yy4, color, width);
+  rasterize_line_xiaolinwu(xx4, yy4, xx1, yy1, color, width);
+#endif
   rasterize_line_xiaolinwu(x0, y0, x1, y1, color, width);
 }
 
@@ -328,7 +350,7 @@ void SoftwareRendererImp::rasterize_line_xiaolinwu(float x0, float y0, float x1,
     color.a = rfpart(yend) * xgap;
     rasterize_point(xpxl2, ypxl2, color);
     color.a = fpart(yend) * xgap;
-    rasterize_point(xpxl2, ypxl1 + 1, color);
+    rasterize_point(xpxl2, ypxl2 + 1, color);
   }
 
   if (steep) {
