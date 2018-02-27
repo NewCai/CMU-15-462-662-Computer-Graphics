@@ -247,6 +247,8 @@ void SoftwareRendererImp::rasterize_line(float x0, float y0, float x1, float y1,
   rasterize_line_xiaolinwu(xx3, yy3, xx4, yy4, color, width);
   rasterize_line_xiaolinwu(xx4, yy4, xx1, yy1, color, width);
 #endif
+ 
+ 
   rasterize_line_xiaolinwu(x0, y0, x1, y1, color, width);
 }
 
@@ -372,11 +374,51 @@ void SoftwareRendererImp::rasterize_line_xiaolinwu(float x0, float y0, float x1,
   }
 }
 
+inline float test_line(float x, float y, float dy, float dx, float yi, float xi) {
+  return (x - xi) * dy - (y - yi) * dx;
+}
+
 void SoftwareRendererImp::rasterize_triangle(float x0, float y0, float x1,
                                              float y1, float x2, float y2,
                                              Color color) {
   // Task 3:
   // Implement triangle rasterization
+  float dy10 = y1 - y0, dx10 = x1 - x0,
+        dy21 = y2 - y1, dx21 = x2 - x1,
+        dy02 = y0 - y2, dx02 = x0 - x2;
+
+  float endx = floor(max(max(x0, x1), x2)) + 0.5f;
+  float endy = floor(max(max(y0, y1), y2))+ 0.5f;
+  float sx = floor(min(min(x0, x1), x2)) + 0.5f;
+  float sy = floor(min(min(y0, y1), y2)) + 0.5f;
+  for (float y = sy; y <= endy; ++y) {
+    bool isInTriangle = false;
+    for (float x = sx; x <= endx; ++x) {
+      if (test_line(x, y, dy10, dx10, y0, x0) > 0) {
+        if (isInTriangle)
+          break;
+        else
+          continue;
+      }
+
+      if (test_line(x, y, dy21, dx21, y1, x1) > 0) {
+        if (isInTriangle)
+          break;
+        else
+          continue;
+      }
+
+      if (test_line(x, y, dy02, dx02, y2, x2) > 0) {
+        if (isInTriangle)
+          break;
+        else
+          continue;
+      }
+
+      isInTriangle = true;
+      rasterize_point(x, y, color);
+    }
+  }
 }
 
 void SoftwareRendererImp::rasterize_image(float x0, float y0, float x1,
