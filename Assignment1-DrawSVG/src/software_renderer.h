@@ -142,6 +142,12 @@ class SoftwareRendererImp : public SoftwareRenderer {
   // resolve samples to render target
   void resolve( void );
 
+  void fill_sample( int x, int y, const Color& c );
+
+  private:
+  std::vector<uint8_t> supersample_target;
+  size_t sample_w, sample_h;
+
 }; // class SoftwareRendererImp
 
 
