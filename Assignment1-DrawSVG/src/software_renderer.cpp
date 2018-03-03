@@ -435,29 +435,19 @@ void SoftwareRendererImp::rasterize_triangle(float x0, float y0, float x1,
   for (float y = sy; y <= endy; y += 1) {
     bool isInTriangle = false;
     for (float x = sx; x <= endx; x += 1) {
-      if (test_line(x, y, dy10, dx10, y0, x0) > 0) {
-        if (isInTriangle)
-          break;
-        else
-          continue;
-      }
+      float t1 = test_line(x, y, dy10, dx10, y0, x0);
+      float t2 = test_line(x, y, dy21, dx21, y1, x1);
+      float t3 = test_line(x, y, dy02, dx02, y2, x2);
 
-      if (test_line(x, y, dy21, dx21, y1, x1) > 0) {
-        if (isInTriangle)
+      float t12 = t1 * t2, t23 = t2 * t3;
+      if (t12 < 0 || t23 < 0) {
+        if (isInTriangle) {
           break;
-        else
-          continue;
+        }
+      } else {
+        isInTriangle = true;
+        fill_sample(x, y, color);
       }
-
-      if (test_line(x, y, dy02, dx02, y2, x2) > 0) {
-        if (isInTriangle)
-          break;
-        else
-          continue;
-      }
-
-      isInTriangle = true;
-      fill_sample(x, y, color);
     }
   }
 }
