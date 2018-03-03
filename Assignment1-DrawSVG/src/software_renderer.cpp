@@ -15,13 +15,15 @@ namespace CMU462 {
 
 void SoftwareRendererImp::draw_svg(SVG& svg) {
   // set top level transformation
-  transformation = canvas_to_screen;
-
+ // transformation = canvas_to_screen;
+  transform_stack.push(canvas_to_screen);
   memset(&supersample_target[0], 0, supersample_target.size() * sizeof supersample_target[0]);
   // draw all elements
   for (size_t i = 0; i < svg.elements.size(); ++i) {
     draw_element(svg.elements[i]);
   }
+
+  transformation = transform_stack.top();
 
   // draw canvas outline
   Vector2D a = transform(Vector2D(0, 0));
@@ -44,6 +46,7 @@ void SoftwareRendererImp::draw_svg(SVG& svg) {
 
   // resolve and send to render target
   resolve();
+  transform_stack.pop();
 }
 
 void SoftwareRendererImp::set_sample_rate(size_t sample_rate) {
@@ -70,7 +73,9 @@ void SoftwareRendererImp::set_render_target(unsigned char* render_target,
 void SoftwareRendererImp::draw_element(SVGElement* element) {
   // Task 5 (part 1):
   // Modify this to implement the transformation stack
-
+  transform_stack.push(transform_stack.top() * element->transform);
+  transformation = transform_stack.top();
+  
   switch (element->type) {
     case POINT:
       draw_point(static_cast<Point&>(*element));
@@ -99,6 +104,8 @@ void SoftwareRendererImp::draw_element(SVGElement* element) {
     default:
       break;
   }
+
+  transform_stack.pop();
 }
 
 // Primitive Drawing //
@@ -177,7 +184,7 @@ void SoftwareRendererImp::draw_polygon(Polygon& polygon) {
       rasterize_triangle(p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, c);
     }
   }
-
+  
   // draw outline
   c = polygon.style.strokeColor;
   if (c.a != 0) {
@@ -466,12 +473,12 @@ void SoftwareRendererImp::resolve(void) {
   // Task 4:
   // Implement supersampling
   // You may also need to modify other functions marked with "Task 4".
-  int sampleNum = sample_rate * sample_rate;
-  for (int x = 0; x <= sample_w - sample_rate; x += sample_rate) {
-    for (int y = 0; y <= sample_h - sample_rate; y += sample_rate) {
+  size_t sampleNum = sample_rate * sample_rate;
+  for (size_t x = 0; x <= sample_w - sample_rate; x += sample_rate) {
+    for (size_t y = 0; y <= sample_h - sample_rate; y += sample_rate) {
       uint16_t r = 0, g = 0, b = 0, a = 0;
-      for (int i = 0; i < sample_rate; ++i) {
-        for (int j = 0; j < sample_rate; ++j) {
+      for (size_t i = 0; i < sample_rate; ++i) {
+        for (size_t j = 0; j < sample_rate; ++j) {
           size_t samplePos = 4 * (x + i + (y +  j) * sample_w);
           r += supersample_target[samplePos];
           g += supersample_target[samplePos + 1];
@@ -481,8 +488,8 @@ void SoftwareRendererImp::resolve(void) {
       }
 
       r /= sampleNum; g /= sampleNum; b /= sampleNum; a /= sampleNum; 
-      int sx = x / sample_rate;
-      int sy = y / sample_rate;
+      size_t sx = x / sample_rate;
+      size_t sy = y / sample_rate;
       size_t pixPos = 4 * (sx + sy * target_w);
       render_target[pixPos] = (uint8_t)(r);
       render_target[pixPos + 1] = (uint8_t)(g);

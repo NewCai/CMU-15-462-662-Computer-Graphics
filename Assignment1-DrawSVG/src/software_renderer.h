@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <stack>
 
 #include "CMU462.h"
 #include "texture.h"
@@ -59,6 +60,8 @@ class SoftwareRenderer : public SVGRenderer {
 
   // SVG coordinates to screen space coordinates
   Matrix3x3 canvas_to_screen;
+
+  std::stack<Matrix3x3> transform_stack;
 
 }; // class SoftwareRenderer
 
