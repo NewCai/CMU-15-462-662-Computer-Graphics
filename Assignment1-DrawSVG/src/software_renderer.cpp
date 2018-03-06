@@ -283,6 +283,12 @@ void SoftwareRendererImp::rasterize_line(float x0, float y0, float x1, float y1,
 
 void SoftwareRendererImp::rasterize_line_bresenham(float x0, float y0, float x1, float y1,
                                                    Color color, float width) {
+  
+  x0 *= sample_rate;
+  x1 *= sample_rate;
+  y0 *= sample_rate;
+  y1 *= sample_rate;
+
   bool steep = abs(x1 - x0) < abs(y1 - y0);
   if (steep) {  // abs(slope) > 1
     swap(x0, y0);
@@ -298,8 +304,8 @@ void SoftwareRendererImp::rasterize_line_bresenham(float x0, float y0, float x1,
   int sign = dy > 0 ? 1 : -1;
   dy = abs(dy);
   for (int x = x0; x <= x1; x++) {
-    if (steep) rasterize_point(y, x, color);
-    else rasterize_point(x, y, color);
+    if (steep) fill_sample(y, x, color);
+    else fill_sample(x, y, color);
     eps += dy;
     if ((eps << 1) >= dx) {
       y += sign;
@@ -390,7 +396,7 @@ void SoftwareRendererImp::rasterize_line_xiaolinwu(float x0, float y0, float x1,
   }
   
   if (steep) {
-    for (size_t x = xpxl1 + 1; x <= xpxl2 - 1 * sample_rate; ++x) {
+    for (float x = xpxl1 + 1; x <= xpxl2 - 1 * sample_rate; ++x) {
       color.a = rfpart(intery);
       fill_sample(ipart(intery), x, color);
       color.a = fpart(intery);
@@ -398,7 +404,7 @@ void SoftwareRendererImp::rasterize_line_xiaolinwu(float x0, float y0, float x1,
       intery += gradient;
     }
   } else {
-    for (size_t x = xpxl1 + 1; x <= xpxl2 - 1 * sample_rate; ++x){
+    for (float x = xpxl1 + 1; x <= xpxl2 - 1 * sample_rate; ++x){
       color.a = rfpart(intery);
       fill_sample(x, ipart(intery), color);
       color.a = fpart(intery);
@@ -463,10 +469,14 @@ void SoftwareRendererImp::rasterize_image(float x0, float y0, float x1,
 
   float w = x1 - x0, h = y1 - y0;
   float su = 1.0f / w, sv = 1.0f / h;
+  float u_scale = tex.width / w, v_scale = tex.height / h;
 
-  for (float x = x0, u = 0; x < x1; ++x, u += su) {
-    for (float y = y0, v = 0; y < y1; ++y, v += sv) {
-      fill_sample(x, y, sampler->sample_bilinear(tex, u, v));
+  float d = max(0.f, log2f(max(u_scale, v_scale)));
+  int k0 = floor(d), k1 = k0 + 1;
+
+  for (float x = x0, u = 0; x <= x1; ++x, u += su) {
+    for (float y = y0, v = 0; y <= y1; ++y, v += sv) {
+      fill_sample(x, y, sampler->sample_trilinear(tex, u, v, u_scale, v_scale));
     }
   }
 }

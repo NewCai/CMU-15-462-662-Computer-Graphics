@@ -26,7 +26,6 @@ inline void float_to_uint8( unsigned char* dst, float src[4] ) {
 }
 
 void Sampler2DImp::generate_mips(Texture& tex, int startLevel) {
-
   // NOTE: 
   // This starter code allocates the mip levels and generates a level 
   // map by filling each level with placeholder data in the form of a 
@@ -64,15 +63,15 @@ void Sampler2DImp::generate_mips(Texture& tex, int startLevel) {
 
   }
 
-  // fill all 0 sub levels with interchanging colors
-  Color colors[3] = { Color(1,0,0,1), Color(0,1,0,1), Color(0,0,1,1) };
+  // generate mipmap
   for(size_t index = 1; index < tex.mipmap.size(); ++index) {
     MipLevel& preMip = tex.mipmap[index - 1];
     MipLevel& curMip = tex.mipmap[index];
 
     for (size_t x = 0; x < curMip.width; ++x) {
+      size_t preX = x * 2;
       for (size_t y = 0;  y < curMip.height; ++y) {
-        size_t preX = x * 2, preY = y * 2;
+        size_t preY = y * 2;
         uint16_t r = 0, g = 0, b = 0, a = 0;
         for (int i = 0; i < 2; ++i) {
           for (int j = 0; j < 2; ++j) {
@@ -116,8 +115,8 @@ Color Sampler2DImp::sample_bilinear(Texture& tex,
   }
 
   MipLevel& mip = tex.mipmap[level];
-  u = u * tex.width - 0.5f;
-  v = v * tex.height - 0.5f;
+  u = u * mip.width - 0.5f;
+  v = v * mip.height - 0.5f;
   size_t x = floor(u);
   size_t y = floor(v);
 
@@ -140,12 +139,14 @@ Color Sampler2DImp::sample_bilinear(Texture& tex,
 Color Sampler2DImp::sample_trilinear(Texture& tex, 
                                      float u, float v, 
                                      float u_scale, float v_scale) {
+  float d = max(0.f, log2f(max(u_scale, v_scale)));
+  int k0 = floor(d), k1 = k0 + 1;
+  float a = k1 - d, b = 1 - a;
 
-  // Task 7: Implement trilinear filtering
+  auto c0 = sample_bilinear(tex, u, v, k0);
+  auto c1 = sample_bilinear(tex, u, v, k1);
 
-  // return magenta for invalid level
-  return Color(1,0,1,1);
-
+  return a * c0 + b * c1;
 }
 
 } // namespace CMU462
