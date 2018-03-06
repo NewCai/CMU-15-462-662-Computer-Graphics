@@ -519,10 +519,25 @@ void SoftwareRendererImp::fill_sample( int x, int y, const Color& c ) {
 
   // fill sample
   size_t pos = 4 * (x + y * sample_w);
-  supersample_target[pos] = (uint8_t)(c.r * 255);
-  supersample_target[pos + 1] = (uint8_t)(c.g * 255);
-  supersample_target[pos + 2] = (uint8_t)(c.b * 255);
-  supersample_target[pos + 3] = (uint8_t)(c.a * 255);
+
+  Color from = c;
+
+  Color scr;
+  scr.r = supersample_target[pos] / 255.0f;
+  scr.g = supersample_target[pos + 1] / 255.0f;
+  scr.b = supersample_target[pos + 2] / 255.0f;
+  scr.a = supersample_target[pos + 3] / 255.0f;
+
+  Color to;
+  to.r = (1.0f - from.a) * scr .r + from.r * from.a;
+  to.g = (1.0f - from.a) * scr .g + from.g * from.a;
+  to.b = (1.0f - from.a) * scr .b + from.b * from.a;
+  to.a = 1.0f - (1.0f  - from.a) * (1.0f - scr.a);
+
+  supersample_target[pos] = (uint8_t)(to.r * 255);
+  supersample_target[pos + 1] = (uint8_t)(to.g * 255);
+  supersample_target[pos + 2] = (uint8_t)(to.b * 255);
+  supersample_target[pos + 3] = (uint8_t)(to.a * 255);
 }
 
 }  // namespace CMU462
