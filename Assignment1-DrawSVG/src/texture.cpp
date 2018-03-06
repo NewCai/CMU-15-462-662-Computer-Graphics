@@ -66,16 +66,29 @@ void Sampler2DImp::generate_mips(Texture& tex, int startLevel) {
 
   // fill all 0 sub levels with interchanging colors
   Color colors[3] = { Color(1,0,0,1), Color(0,1,0,1), Color(0,0,1,1) };
-  for(size_t i = 1; i < tex.mipmap.size(); ++i) {
+  for(size_t index = 1; index < tex.mipmap.size(); ++index) {
+    MipLevel& preMip = tex.mipmap[index - 1];
+    MipLevel& curMip = tex.mipmap[index];
 
-    Color c = colors[i % 3];
-    MipLevel& mip = tex.mipmap[i];
-
-    for(size_t i = 0; i < 4 * mip.width * mip.height; i += 4) {
-      float_to_uint8( &mip.texels[i], &c.r );
+    for (size_t x = 0; x < curMip.width; ++x) {
+      for (size_t y = 0;  y < curMip.height; ++y) {
+        size_t preX = x * 2, preY = y * 2;
+        uint16_t r = 0, g = 0, b = 0, a = 0;
+        for (int i = 0; i < 2; ++i) {
+          for (int j = 0; j < 2; ++j) {
+            r += preMip.texels[4 * (preX + i + (preY + j) * preMip.width)];
+            g += preMip.texels[4 * (preX + i + (preY + j) * preMip.width) + 1];
+            b += preMip.texels[4 * (preX + i + (preY + j) * preMip.width) + 2];
+            a += preMip.texels[4 * (preX + i + (preY + j) * preMip.width) + 3];
+          }
+        }
+        curMip.texels[4 * (x + y * curMip.width)] =  r / 4;
+        curMip.texels[4 * (x + y * curMip.width) + 1] =  g / 4;
+        curMip.texels[4 * (x + y * curMip.width) + 2] =  b / 4;
+        curMip.texels[4 * (x + y * curMip.width) + 3] =  a / 4;
+      }
     }
   }
-
 }
 
 Color Sampler2DImp::sample_nearest(Texture& tex, 
