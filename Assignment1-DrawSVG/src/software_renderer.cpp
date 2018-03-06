@@ -17,7 +17,7 @@ void SoftwareRendererImp::draw_svg(SVG& svg) {
   // set top level transformation
  // transformation = canvas_to_screen;
   transform_stack.push(canvas_to_screen);
-  memset(&supersample_target[0], 0, supersample_target.size() * sizeof supersample_target[0]);
+  memset(&supersample_target[0], 255, supersample_target.size() * sizeof supersample_target[0]);
   // draw all elements
   for (size_t i = 0; i < svg.elements.size(); ++i) {
     draw_element(svg.elements[i]);
