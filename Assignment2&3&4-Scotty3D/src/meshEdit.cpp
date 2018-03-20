@@ -51,19 +51,35 @@ FaceIter HalfedgeMesh::eraseEdge(EdgeIter e) {
 }
 
 EdgeIter HalfedgeMesh::flipEdge(EdgeIter e0) {
-  // HALFEDGES
+  if (e0->isBoundary()) {
+    return e0;
+  }
+
+  // TODO
+  // ignore requests to perform any edge flip that would make the 
+  // surface non-manifold or otherwise invalidate the mesh.
+
+// HALFEDGES
   HalfedgeIter h0 = e0->halfedge();
   HalfedgeIter h1 = h0->next();
-  HalfedgeIter h2 = h1->next();
+  HalfedgeIter h6 = h1->next();
   HalfedgeIter h3 = h0->twin();
   HalfedgeIter h4 = h3->next();
-  HalfedgeIter h5 = h4->next();
+  HalfedgeIter h7 = h4->next();
+  HalfedgeIter h2 = h6;
+  while (h2->next() != h0) {
+    h2 = h2->next();
+  } 
+  HalfedgeIter h5 = h7;
+  while (h5->next() != h3) {
+    h5 = h5->next();
+  } 
 
   // VERTICES
   VertexIter v0 = h0->vertex();
   VertexIter v1 = h3->vertex();
-  VertexIter v2 = h5->vertex();
-  VertexIter v3 = h2->vertex();
+  VertexIter v2 = h7->vertex();
+  VertexIter v3 = h6->vertex();
 
   // FACES
   FaceIter f0 = h0->face();
@@ -72,7 +88,7 @@ EdgeIter HalfedgeMesh::flipEdge(EdgeIter e0) {
   // reasign
 
   // HALFEDGES
-  h0->next() = h2;
+  h0->next() = h6;
   h0->vertex() = v2;
   h0->face() = f0;
 
@@ -82,7 +98,7 @@ EdgeIter HalfedgeMesh::flipEdge(EdgeIter e0) {
   h2->next() = h4;
   h2->face() = f0;
 
-  h3->next() = h5;
+  h3->next() = h7;
   h3->vertex() = v3;
   h3->face() = f1;
 
@@ -92,11 +108,15 @@ EdgeIter HalfedgeMesh::flipEdge(EdgeIter e0) {
   h5->next() = h1;
   h5->face() = f1;
 
+  h6->face() = f0;
+
+  h7->face() = f1;
+
   // VERTICES
   v0->halfedge() = h4;
   v1->halfedge() = h1;
-  v2->halfedge() = h5;
-  v3->halfedge() = h2;
+  v2->halfedge() = h7;
+  v3->halfedge() = h6;
 
   // FACES
   f0->halfedge() = h0;
