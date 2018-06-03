@@ -1,8 +1,8 @@
-#include <float.h>
-#include <assert.h>
 #include "meshEdit.h"
-#include "mutablePriorityQueue.h"
+#include <assert.h>
+#include <float.h>
 #include "error_dialog.h"
+#include "mutablePriorityQueue.h"
 
 namespace CMU462 {
 
@@ -56,10 +56,10 @@ EdgeIter HalfedgeMesh::flipEdge(EdgeIter e0) {
   }
 
   // TODO
-  // ignore requests to perform any edge flip that would make the 
+  // ignore requests to perform any edge flip that would make the
   // surface non-manifold or otherwise invalidate the mesh.
 
-// HALFEDGES
+  // HALFEDGES
   HalfedgeIter h0 = e0->halfedge();
   HalfedgeIter h1 = h0->next();
   HalfedgeIter h6 = h1->next();
@@ -69,11 +69,11 @@ EdgeIter HalfedgeMesh::flipEdge(EdgeIter e0) {
   HalfedgeIter h2 = h6;
   while (h2->next() != h0) {
     h2 = h2->next();
-  } 
+  }
   HalfedgeIter h5 = h7;
   while (h5->next() != h3) {
     h5 = h5->next();
-  } 
+  }
 
   // VERTICES
   VertexIter v0 = h0->vertex();
@@ -348,10 +348,113 @@ FaceIter HalfedgeMesh::bevelFace(FaceIter f) {
   // HalfedgeMesh::bevelFaceComputeNewPositions (which you also have to
   // implement!)
 
-  showError("bevelFace() not implemented.");
-  return facesBegin();
-}
+  // original edges
+  vector<HalfedgeIter> originalEdges;
+  HalfedgeIter hf = f->halfedge();
+  originalEdges.push_back(hf);
+  HalfedgeIter fi = hf->next();
+  while (fi != hf) {
+    originalEdges.push_back(fi);
+    fi = fi->next();
+  }
 
+  int num = originalEdges.size();
+
+  // original vertices
+  vector<VertexIter> originalVertices;
+  for (auto e : originalEdges) {
+    originalVertices.push_back(e->vertex());
+  }
+
+  // original faces
+  FaceIter g = newFace();
+
+  // new data
+  vector<EdgeIter> e1_list;
+  vector<EdgeIter> e2_list;
+  vector<HalfedgeIter> e1_h1_list;
+  vector<HalfedgeIter> e1_h2_list;
+  vector<HalfedgeIter> e2_h1_list;
+  vector<HalfedgeIter> e2_h2_list;
+  vector<VertexIter> new_vertex_list;
+  vector<FaceIter> new_face_list;
+
+  for (int i = 0; i < num; ++i) {
+    e1_list.push_back(newEdge());
+    e2_list.push_back(newEdge());
+    e1_h1_list.push_back(newHalfedge());
+    e1_h2_list.push_back(newHalfedge());
+    e2_h1_list.push_back(newHalfedge());
+    e2_h2_list.push_back(newHalfedge());
+    new_vertex_list.push_back(newVertex());
+    new_face_list.push_back(newFace());
+  }
+
+  for (int i = 0; i < num; ++i) {
+    // e2_h2
+    {
+      auto target = e2_h2_list[i];
+      target->next() = e1_h2_list[i];
+      target->twin() = e2_h1_list[i];
+      target->vertex() = new_vertex_list[(i + 1) % num];
+      target->edge() = e2_list[i];
+      target->face() = new_face_list[i];
+    }
+
+    // e2_h1
+    {
+      auto target = e2_h1_list[i];
+      target->next() = e2_h1_list[(i + 1) % num];
+      target->twin() = e2_h2_list[i];
+      target->vertex() = new_vertex_list[i];
+      target->edge() = e2_list[i];
+      target->face() = g;
+    }
+
+    // e1_h2
+    {
+      auto target = e1_h2_list[i];
+      target->next() = originalEdges[i];
+      target->twin() = e1_h1_list[i];
+      target->vertex() = new_vertex_list[i];
+      target->edge() = e1_list[i];
+      target->face() = new_face_list[i];
+    }
+
+    // e1_h1
+    {
+      auto target = e1_h1_list[i];
+      target->next() = e2_h2_list[(i + num - 1) % num];
+      target->twin() = e1_h2_list[i];
+      target->vertex() = originalVertices[i];
+      target->edge() = e1_list[i];
+      target->face() = new_face_list[(i + num - 1) % num];
+    }
+
+    // edges
+    e1_list[i]->halfedge() = e1_h1_list[i];
+    e2_list[i]->halfedge() = e2_h1_list[i];
+    // new verteces
+    new_vertex_list[i]->halfedge() = e2_h1_list[i];
+    // new faces
+    new_face_list[i]->halfedge() = originalEdges[i];
+
+    // original edges
+    originalEdges[i]->face() = new_face_list[i];
+    originalEdges[i]->next() = e1_h1_list[(i + 1) % num];
+  }
+
+  g->halfedge() = e2_h1_list[0];
+
+  // delete
+  deleteFace(f);
+
+  for (int i = 0; i < new_vertex_list.size(); i++) {
+    new_vertex_list[i]->position = originalVertices[i]->position;
+  }
+
+  return g;
+}
 
 void HalfedgeMesh::bevelFaceComputeNewPositions(
     vector<Vector3D>& originalVertexPositions,
@@ -378,6 +481,16 @@ void HalfedgeMesh::bevelFaceComputeNewPositions(
   // }
   //
 
+  auto face = newHalfedges[0]->next()->next()->next()->twin()->face();
+  auto normal = face->normal(); ;
+  auto center = face->centroid();
+
+  for (int i = 0; i < newHalfedges.size(); i++) {
+    auto pos = newHalfedges[i]->vertex()->position;
+    auto v = center - pos;
+    v.normalize();
+    newHalfedges[i]->vertex()->position = pos + normal * normalShift + v * tangentialInset;
+  }
 }
 
 void HalfedgeMesh::bevelVertexComputeNewPositions(
@@ -391,7 +504,6 @@ void HalfedgeMesh::bevelVertexComputeNewPositions(
   // The basic strategy here is to loop over the list of outgoing halfedges,
   // and use the preceding and next vertex position from the original mesh
   // (in the orig array) to compute an offset vertex position.
-
 }
 
 void HalfedgeMesh::bevelEdgeComputeNewPositions(
@@ -416,7 +528,6 @@ void HalfedgeMesh::bevelEdgeComputeNewPositions(
   //    position correponding to vertex i
   // }
   //
-
 }
 
 void HalfedgeMesh::splitPolygons(vector<FaceIter>& fcs) {
@@ -424,7 +535,7 @@ void HalfedgeMesh::splitPolygons(vector<FaceIter>& fcs) {
 }
 
 void HalfedgeMesh::splitPolygon(FaceIter f) {
-  // TODO: (meshedit) 
+  // TODO: (meshedit)
   // Triangulate a polygonal face
   showError("splitPolygon() not implemented.");
 }
