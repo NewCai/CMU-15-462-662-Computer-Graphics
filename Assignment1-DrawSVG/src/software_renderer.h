@@ -61,8 +61,6 @@ class SoftwareRenderer : public SVGRenderer {
   // SVG coordinates to screen space coordinates
   Matrix3x3 canvas_to_screen;
 
-  std::stack<Matrix3x3> transform_stack;
-
 }; // class SoftwareRenderer
 
 
@@ -120,16 +118,16 @@ class SoftwareRendererImp : public SoftwareRenderer {
   // rasterize a line
   void rasterize_line( float x0, float y0,
                        float x1, float y1,
-                       Color color, float width = 1.0);
+                       Color color);
 
   void rasterize_line_bresenham( float x0, float y0,
                                  float x1, float y1,
-                                 Color color, float width);
+                                 Color color);
 
   
   void rasterize_line_xiaolinwu( float x0, float y0,
                                  float x1, float y1,
-                                 Color color, float width);                    
+                                 Color color);                    
 
   // rasterize a triangle
   void rasterize_triangle( float x0, float y0,
@@ -150,6 +148,7 @@ class SoftwareRendererImp : public SoftwareRenderer {
   private:
   std::vector<uint8_t> supersample_target;
   size_t sample_w, sample_h;
+  std::stack<Matrix3x3> transform_stack;
 
 }; // class SoftwareRendererImp
 
