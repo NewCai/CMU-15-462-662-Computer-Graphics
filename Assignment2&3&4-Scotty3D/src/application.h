@@ -228,7 +228,6 @@ class Application : public Renderer {
   void mouse_released(e_mouse_button b);  // Mouse Released.
   void mouse1_dragged(float x, float y);  // Left Mouse Dragged.
   void mouse2_dragged(float x, float y);  // Right Mouse Dragged.
-  void mouse_moved(float x, float y);     // Mouse Moved.
 
   /**
    * If there is current selection and it's draggable, apply its drag method.
@@ -301,6 +300,16 @@ class Application : public Renderer {
 
   bool useCapsuleRadius;
 
+  GLuint backface_color_tex;
+  GLuint backface_depth_tex;
+  GLuint backface_fbo;
+  GLuint frntface_color_tex;
+  GLuint frntface_depth_tex;
+  GLuint frntface_fbo;
+
+  bool symmetryEnabled = false;
+  enum Axis { X = 'X', Y = 'Y', Z = 'Z' };
+  Axis symmetryAxis = Axis::X;
 };  // class Application
 
 }  // namespace CMU462

@@ -14,8 +14,7 @@ XFormWidget::XFormWidget() {
   target.element = nullptr;
   objectMode = false;
   transformedMode = false;
-  jointMode = false;
-  jointIsRoot = false;
+  poseMode = false;
   mode = lastMode = Mode::Translate;
 }
 
@@ -23,12 +22,11 @@ void XFormWidget::enterObjectMode() { objectMode = true; }
 
 void XFormWidget::exitObjectMode() { objectMode = false; }
 
-void CMU462::DynamicScene::XFormWidget::enterJointMode(bool isRoot) {
-  jointMode = true;
-  jointIsRoot = isRoot;
+void CMU462::DynamicScene::XFormWidget::enterPoseMode() {
+  poseMode = true;
 }
 
-void CMU462::DynamicScene::XFormWidget::exitJointMode() { jointMode = false; }
+void CMU462::DynamicScene::XFormWidget::exitPoseMode() { poseMode = false; }
 
 void XFormWidget::enterTransformedMode() { transformedMode = true; }
 
@@ -39,9 +37,14 @@ void XFormWidget::setTarget(Selection& _target) {
   target = _target;
   if (objectMode) {
     if (target.object == this) target.object = originalObj;
+    target.element = nullptr;
   }
 
   updateGeometry();
+}
+
+void XFormWidget::onMouseReleased() {
+  isTransforming = false;
 }
 
 void XFormWidget::setTranslate() {
@@ -66,7 +69,7 @@ void XFormWidget::setScale() {
 }
 
 void XFormWidget::cycleMode() {
-  if (jointMode) return;
+  if (poseMode) return;
 
   if (mode == Mode::Translate)
     mode = Mode::Rotate;
@@ -88,6 +91,19 @@ void XFormWidget::set_draw_styles(DrawStyle* defaultStyle,
   this->defaultStyle = defaultStyle;
   this->hoveredStyle = hoveredStyle;
   this->selectedStyle = selectedStyle;
+}
+
+static inline void apply_parent_transform(Selection target) {
+  // Only apply here if we are selecting an element inside of a
+  // transformed Mesh.  i.e. element != null && object != null
+  if (target.element != nullptr && target.object != nullptr) {
+    auto pos = target.object->position;
+    auto rot = target.object->rotation;
+    glTranslated(pos.x, pos.y, pos.z);
+    glRotated(rot.z, 0, 0, 1);
+    glRotated(rot.y, 0, 1, 0);
+    glRotated(rot.x, 1, 0, 0);
+  }
 }
 
 void XFormWidget::draw() {
@@ -134,6 +150,8 @@ void XFormWidget::draw() {
 }
 
 void XFormWidget::drawHandles() const {
+  glPushMatrix();
+  apply_parent_transform(target);
   switch (mode) {
     case Mode::Translate:
       drawTranslateHandles();
@@ -147,6 +165,7 @@ void XFormWidget::drawHandles() const {
     default:
       break;
   }
+  glPopMatrix();
 }
 
 BBox XFormWidget::get_bbox() { return bounds; }
@@ -254,14 +273,15 @@ void XFormWidget::directionalTransform(Vector3D& p, vector<int> I, Vector3D c,
 
   // For translation and scale, the speed of transformation will depend on how
   // well the cursor motion lines up with the selected axis in screen space.
-  // TODO: y axis inverted sometimes
   Vector3D u = E[i];
-  Vector4D v(u, 1.);
+  Vector4D v(u, 0.);
   v = modelViewProj * v;
   double M = sqrt(v.x * v.x + v.y * v.y);
   v.x /= M;
   v.y /= M;
-  double m = dx * v.x + dy * v.y;  // speed of transformation
+  auto const sign = [](double d) {return d >= 0 ? 1.0 : -1.0;};
+  double m = sign(dx * v.x + dy * v.y) *                              // direction of transformation determined by dot product
+                sqrt((dx * v.x)*(dx * v.x) + (dy * v.y)*(dy * v.y));  // speed of transformation determined by length of skewed vector
 
   if (I[0] == 1 && I[1] == 1 && I[2] == 1) {
     m = dx + dy;
@@ -307,10 +327,19 @@ void XFormWidget::drag(double x, double y, double dx, double dy,
   if (target.element == nullptr && !objectMode) return;
 
   if (objectMode) {
+    Joint *j = dynamic_cast<Joint *>(target.object);
+    bool isJoint = j != nullptr;
+
+    Vector3D jpos;
     Vector3D* update;
     switch (mode) {
       case Mode::Translate:
-        update = &target.object->position;
+        if(isJoint && j->skeleton->root != j) {
+          jpos = j->getEndPosInWorld();
+          update = &jpos;
+        } else {
+          update = &target.object->position;
+        }
         break;
       case Mode::Scale:
         update = &target.object->scale;
@@ -334,12 +363,15 @@ void XFormWidget::drag(double x, double y, double dx, double dy,
       switch (target.axis) {
         case Selection::Axis::X:
           update->x = theta;
+          isTransforming = true;
           break;
         case Selection::Axis::Y:
           update->y = theta;
+          isTransforming = true;
           break;
         case Selection::Axis::Z:
           update->z = theta;
+          isTransforming = true;
           break;
         default:
           // Do nothing
@@ -357,27 +389,47 @@ void XFormWidget::drag(double x, double y, double dx, double dy,
       // Transform back into model s*updateace
       q *= w;
       q = modelViewProj.inv() * q;
-      *update = q.to3D();
+
+      if(!isJoint)
+        *update = q.to3D();
+      else if(j->skeleton->root == j)
+        j->position = q.to3D();
+      else
+        j->axis += q.to3D() - jpos;
+      
+      isTransforming = true;
     } else {
       vector<int> I = {0, 0, 0};
       switch (target.axis) {
         case Selection::Axis::X:
           I[0] = 1;
+          isTransforming = true;
           break;
         case Selection::Axis::Y:
           I[1] = 1;
+          isTransforming = true;
           break;
         case Selection::Axis::Z:
           I[2] = 1;
+          isTransforming = true;
           break;
         case Selection::Axis::Center:
           I[0] = I[1] = I[2] = 1;
+          isTransforming = true;
           break;
         default:
           break;
       }
       Vector3D c = mode == Mode::Translate ? center : Vector3D(0, 0, 0);
-      directionalTransform(*update, I, c, x, y, dx, dy, modelViewProj);
+
+      if(!isJoint || j->skeleton->root == j)
+        directionalTransform(*update, I, c, x, y, dx, dy, modelViewProj);
+      else {
+        Vector3D npos = jpos;
+        directionalTransform(npos, I, c, x, y, dx, dy, modelViewProj);
+        j->axis += npos - jpos;
+      }
+      
     }
 
     return;
@@ -385,6 +437,7 @@ void XFormWidget::drag(double x, double y, double dx, double dy,
 
   if (mode == Mode::Translate && target.axis == Selection::Axis::Center) {
     target.element->translate(dx, dy, modelViewProj);
+    isTransforming = true;
     // TODO uniform scale, free rotate
     return;
   }
@@ -399,15 +452,19 @@ void XFormWidget::drag(double x, double y, double dx, double dy,
   switch (target.axis) {
     case Selection::Axis::X:
       I[0] = 1;
+      isTransforming = true;
       break;
     case Selection::Axis::Y:
       I[1] = 1;
+      isTransforming = true;
       break;
     case Selection::Axis::Z:
       I[2] = 1;
+      isTransforming = true;
       break;
     case Selection::Axis::Center:
       I[0] = I[1] = I[2] = 1;
+      isTransforming = true;
       break;
     default:
       break;
@@ -459,6 +516,8 @@ void XFormWidget::draw_pick(int& pickID, bool transformed) {
 
   glPushMatrix();
 
+  apply_parent_transform(target);
+
   switch (mode) {
     case Mode::Translate:
       drawTranslateHandles();
@@ -478,6 +537,10 @@ void XFormWidget::draw_pick(int& pickID, bool transformed) {
 }
 
 void XFormWidget::setSelection(int pickID, Selection& selection) {
+  // Don't change selection if the mouse is down and we are transforming
+  if(isTransforming)
+    return;
+
   if (pickIDToAxis.find(pickID) != pickIDToAxis.end()) {
     selection.clear();
     selection.object = this;
@@ -488,22 +551,33 @@ void XFormWidget::setSelection(int pickID, Selection& selection) {
   }
 }
 
+bool XFormWidget::getIsTransforming() const {
+  return isTransforming;
+}
+
 void XFormWidget::updateGeometry() {
   if (target.object == nullptr) return;
-
   axes.resize(3);
   if (objectMode) {
     Joint* joint = dynamic_cast<Joint*>(target.object);
-    if (joint != nullptr)
-      center = joint->getBasePosInWorld();
-    else
-      center = target.object->position;
-    if (jointMode && jointIsRoot) {
-      Joint* j = dynamic_cast<Joint*>(target.object);
-      if (j != nullptr) bounds = j->skeleton->mesh->get_bbox();
-    } else
-      bounds = target.object->get_bbox();
     if (joint != nullptr) {
+      if(poseMode)
+        center = joint->getBasePosInWorld();
+      else
+        center = joint->getEndPosInWorld();
+    } else
+      center = target.object->position;
+
+    if (poseMode && joint && joint == joint->skeleton->root) {
+      bounds = joint->skeleton->mesh->get_bbox();
+    } else if(!poseMode && joint) {
+      auto p = joint->position;
+      auto e = joint->skeleton->mesh->get_bbox().extent * 0.15f;
+      bounds = BBox(p-e, p+e);
+    }
+    else bounds = target.object->get_bbox();
+
+    if (poseMode && joint != nullptr && joint != joint->skeleton->root) {
       joint->getAxes(axes);
     } else {
       axes[0] = Vector3D(1., 0., 0.);

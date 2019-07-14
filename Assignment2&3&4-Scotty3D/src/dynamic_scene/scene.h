@@ -228,7 +228,7 @@ class Scene {
    * Renders the scene at the given time in OpenGL, according to the
    * splines specified in the animator.
    */
-  void render_splines_at(double time, bool pretty, bool useCapsuleRadius);
+  void render_splines_at(double time, bool pretty, bool useCapsuleRadius, bool depth_only = false);
 
   /**
    * Draws the actual curves corresponding to a spline.
@@ -248,7 +248,7 @@ class Scene {
    * time this function is called.
    */
   void getHoveredObject(const Vector2D &p, bool getElement = true,
-                        bool transformed = false);
+                        bool transformed = true);
 
   /**
    * Returns true iff there is a hovered feature in the scene.
@@ -329,7 +329,7 @@ class Scene {
    * Gets the selected object from the scene, returning nullptr if no object is
    * selected.
    */
-  SceneObject *get_selection();
+  SceneObject *get_world_to_3DH();
 };
 
 // Mapping between integer and 8-bit RGB values (used for picking)
