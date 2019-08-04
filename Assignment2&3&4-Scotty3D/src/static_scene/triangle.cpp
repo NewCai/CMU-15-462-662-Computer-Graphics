@@ -19,8 +19,42 @@ BBox Triangle::get_bbox() const {
 
 bool Triangle::intersect(const Ray& r) const {
   // TODO (PathTracer): implement ray-triangle intersection
+  // implement ray-triangle intersection. 
 
-  return false;
+	auto p0 = mesh->positions[v1];
+	auto p1 = mesh->positions[v2];
+	auto p2 = mesh->positions[v3];
+
+	auto e1 = p1 - p0;
+	auto e2 = p2 - p0;
+	
+	auto e1_x_d = cross(e1, r.d);
+	auto denominator = dot(e1_x_d, e2);
+
+	if (denominator <= 1e-4)
+		return false;
+
+	double denominator_i = 1.0 / denominator;
+
+	auto s = r.o - p0;
+
+	auto s_x_e2 = cross(e2, s);
+
+	auto t = dot(s_x_e2, e1) * denominator_i;
+	if (t < r.min_t || t > r.max_t)
+		return false;
+
+	auto u = dot(s_x_e2, r.d) * denominator_i;
+	if (u < 0 || u > 1)
+		return false;
+
+	auto v = dot(e1_x_d, s) * denominator_i;
+	if (v < 0 || v > 1 || u + v > 1)
+		return false;
+
+	r.max_t = t;
+
+	return true;
 }
 
 bool Triangle::intersect(const Ray& r, Intersection* isect) const {
@@ -28,7 +62,54 @@ bool Triangle::intersect(const Ray& r, Intersection* isect) const {
   // implement ray-triangle intersection. When an intersection takes
   // place, the Intersection data should be updated accordingly
 
-  return false;
+  // implement ray-triangle intersection. 
+  // When an intersection takes place, 
+  // the Intersection data should be updated accordingly
+
+	auto p0 = mesh->positions[v1];
+	auto p1 = mesh->positions[v2];
+	auto p2 = mesh->positions[v3];
+
+	auto e1 = p1 - p0;
+	auto e2 = p2 - p0;
+
+	auto e1_x_d = cross(e1, r.d);
+	double denominator = dot(e1_x_d, e2);
+
+	if (denominator <= 1e-4)
+		return false;
+
+	auto denominator_i = 1.0 / denominator;
+
+	auto s = r.o - p0;
+
+	auto s_x_e2 = cross(e2, s);
+
+	auto t = dot(s_x_e2, e1) * denominator_i;
+	if (t < r.min_t || t > r.max_t)
+		return false;
+
+	auto u = dot(s_x_e2, r.d) * denominator_i;
+	if (u < 0 || u > 1)
+		return false;
+
+	auto v = dot(e1_x_d, s) * denominator_i;
+	if (v < 0 || v > 1 || u + v > 1)
+		return false;
+
+	r.max_t = t;
+
+	auto n0 = mesh->normals[v1];
+	auto n1 = mesh->normals[v2];
+	auto n2 = mesh->normals[v3];
+	auto n = (1 - u - v) * n0 + u * n1 + v * n2;
+
+	isect->t = t;
+	isect->n = dot(n, r.d) < 0 ? n : -n;
+	isect->primitive = this;
+	isect->bsdf = mesh->get_bsdf();
+
+	return true;
 }
 
 void Triangle::draw(const Color& c) const {
