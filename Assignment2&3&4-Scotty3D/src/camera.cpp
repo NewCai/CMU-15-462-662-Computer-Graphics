@@ -123,8 +123,16 @@ Ray Camera::generate_ray(double x, double y) const {
   // TODO (PathTracer):
   // compute position of the input sensor sample coordinate on the
   // canonical sensor plane one unit away from the pinhole.
+  x -= 0.5;
+  y -= 0.5;
 
-  return Ray(Vector3D(0, 0, 0), Vector3D(0, 0, 1));
+  auto height = tan(radians(vFov) / 2) * 2;
+  auto width = tan(radians(hFov) / 2) * 2;
+
+  auto d = c2w * Vector3D(width * x, height * y, -1);
+  d.normalize();
+
+  return Ray(pos, d);
 }
 
 }  // namespace CMU462

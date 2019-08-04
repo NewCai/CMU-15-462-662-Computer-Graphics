@@ -503,8 +503,16 @@ Spectrum PathTracer::raytrace_pixel(size_t x, size_t y) {
 
   int num_samples = ns_aa;
 
-  Vector2D p = Vector2D(0.5, 0.5);
-  return trace_ray(camera->generate_ray(p.x, p.y));
+  float w = sampleBuffer.w;
+  float h = sampleBuffer.h;
+  
+  Spectrum s;
+  for (int i = 0; i < num_samples; ++i)
+  {
+    auto sample = gridSampler->get_sample();
+    s += trace_ray(camera->generate_ray((x + sample.x) / w, (y + sample.y) / h));
+  }
+  return s * (1.0 / num_samples);
 }
 
 void PathTracer::raytrace_tile(int tile_x, int tile_y, int tile_w, int tile_h) {
