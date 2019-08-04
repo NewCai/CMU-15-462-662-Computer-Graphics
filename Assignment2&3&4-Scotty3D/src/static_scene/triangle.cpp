@@ -2,6 +2,7 @@
 
 #include "CMU462/CMU462.h"
 #include "GL/glew.h"
+#include "math.h"
 
 namespace CMU462 {
 namespace StaticScene {
@@ -31,7 +32,7 @@ bool Triangle::intersect(const Ray& r) const {
 	auto e1_x_d = cross(e1, r.d);
 	auto denominator = dot(e1_x_d, e2);
 
-	if (denominator <= 1e-4)
+	if (abs(denominator) <= 1e-4)
 		return false;
 
 	double denominator_i = 1.0 / denominator;
@@ -76,7 +77,7 @@ bool Triangle::intersect(const Ray& r, Intersection* isect) const {
 	auto e1_x_d = cross(e1, r.d);
 	double denominator = dot(e1_x_d, e2);
 
-	if (denominator <= 1e-4)
+	if (abs(denominator) <= 1e-4)
 		return false;
 
 	auto denominator_i = 1.0 / denominator;
