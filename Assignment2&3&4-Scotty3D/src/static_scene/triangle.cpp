@@ -11,15 +11,32 @@ Triangle::Triangle(const Mesh* mesh, vector<size_t>& v) : mesh(mesh), v(v) {}
 Triangle::Triangle(const Mesh* mesh, size_t v1, size_t v2, size_t v3)
     : mesh(mesh), v1(v1), v2(v2), v3(v3) {}
 
-BBox Triangle::get_bbox() const {
-  // TODO (PathTracer):
-  // compute the bounding box of the triangle
+BBox Triangle::get_bbox() const
+{
+	// compute the bounding box of the triangle
+	BBox box;
 
-  return BBox();
+	Vector3D points[3] = {
+		mesh->positions[v1],
+		mesh->positions[v2],
+		mesh->positions[v3]};
+
+	for (size_t i = 0; i < 3; i++)
+	{
+		Vector3D p = points[i];
+		for (size_t j = 0; j < 3; j++)
+		{
+			box.min[j] = min(box.min[j], p[j]);
+			box.max[j] = max(box.max[j], p[j]);
+		}
+	}
+
+	box.extent = box.max - box.min;
+
+	return box;
 }
 
 bool Triangle::intersect(const Ray& r) const {
-  // TODO (PathTracer): implement ray-triangle intersection
   // implement ray-triangle intersection. 
 
 	auto p0 = mesh->positions[v1];
@@ -59,7 +76,6 @@ bool Triangle::intersect(const Ray& r) const {
 }
 
 bool Triangle::intersect(const Ray& r, Intersection* isect) const {
-  // TODO (PathTracer):
   // implement ray-triangle intersection. When an intersection takes
   // place, the Intersection data should be updated accordingly
 
