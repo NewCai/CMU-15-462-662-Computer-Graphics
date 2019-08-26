@@ -39,33 +39,20 @@ BVHAccel::~BVHAccel() {
 BBox BVHAccel::get_bbox() const { return root->bb; }
 
 bool BVHAccel::intersect(const Ray &ray) const {
-  // TODO (PathTracer):
   // Implement ray - bvh aggregate intersection test. A ray intersects
   // with a BVH aggregate if and only if it intersects a primitive in
   // the BVH that is not an aggregate.
-
-  bool hit = false;
-  for (size_t p = 0; p < primitives.size(); ++p) {
-    if (primitives[p]->intersect(ray)) hit = true;
-  }
-
-  return hit;
+  return root->intersect(primitives, ray);
 }
 
 bool BVHAccel::intersect(const Ray &ray, Intersection *isect) const {
-  // TODO (PathTracer):
   // Implement ray - bvh aggregate intersection test. A ray intersects
   // with a BVH aggregate if and only if it intersects a primitive in
   // the BVH that is not an aggregate. When an intersection does happen.
   // You should store the non-aggregate primitive in the intersection data
   // and not the BVH aggregate itself.
 
-  bool hit = false;
-  for (size_t p = 0; p < primitives.size(); ++p) {
-    if (primitives[p]->intersect(ray, isect)) hit = true;
-  }
-
-  return hit;
+  return root->intersect(primitives, ray, isect);
 }
 
 BVHNode::~BVHNode()
@@ -74,7 +61,7 @@ BVHNode::~BVHNode()
 	delete r;
 }
 
-void BVHNode::Partition(std::vector<Primitive*>& _primitives, size_t max_leaf_size)
+void BVHNode::Partition(std::vector<Primitive *> &_primitives, size_t max_leaf_size)
 {
 	if (range <= max_leaf_size)
 	{
@@ -83,13 +70,13 @@ void BVHNode::Partition(std::vector<Primitive*>& _primitives, size_t max_leaf_si
 
 	const int BUCKET_SIZE = 8;
 
-	vector<Primitive*> partitionA, partitionB;
+	vector<Primitive *> partitionA, partitionB;
 	double sah = INF_D;
 
 	for (size_t d = 0; d < 3; ++d)
 	{
-		vector<vector<Primitive*>> buckets(BUCKET_SIZE, vector<Primitive*>());
-    vector<BBox> bucketBBoxes(BUCKET_SIZE);
+		vector<vector<Primitive *>> buckets(BUCKET_SIZE, vector<Primitive *>());
+		vector<BBox> bucketBBoxes(BUCKET_SIZE);
 
 		auto left = bb.min[d], right = bb.max[d];
 		auto space = (right - left) / BUCKET_SIZE;
@@ -99,17 +86,17 @@ void BVHNode::Partition(std::vector<Primitive*>& _primitives, size_t max_leaf_si
 			auto p = _primitives[i];
 			auto index = floorl((p->get_bbox().centroid()[d] - left) / space);
 			buckets[index].push_back(p);
-      bucketBBoxes[index].expand(p->get_bbox());
+			bucketBBoxes[index].expand(p->get_bbox());
 		}
 
-    vector<BBox> leftBBoxes(BUCKET_SIZE);
-    vector<BBox> rightBBoxes(BUCKET_SIZE);
-    for (size_t i = 1; i <= BUCKET_SIZE - 1; ++i)
+		vector<BBox> leftBBoxes(BUCKET_SIZE);
+		vector<BBox> rightBBoxes(BUCKET_SIZE);
+		for (size_t i = 1; i <= BUCKET_SIZE - 1; ++i)
 		{
-      leftBBoxes[i] = leftBBoxes[i - 1];
-      rightBBoxes[i] = rightBBoxes[i - 1];
-      leftBBoxes[i].expand(bucketBBoxes[i - 1]);
-      rightBBoxes[i].expand(bucketBBoxes[BUCKET_SIZE - i]);
+			leftBBoxes[i] = leftBBoxes[i - 1];
+			rightBBoxes[i] = rightBBoxes[i - 1];
+			leftBBoxes[i].expand(bucketBBoxes[i - 1]);
+			rightBBoxes[i].expand(bucketBBoxes[BUCKET_SIZE - i]);
 		}
 
 		size_t leftPartitionNum = 0, rightPartitionNum = 0;
@@ -152,35 +139,114 @@ void BVHNode::Partition(std::vector<Primitive*>& _primitives, size_t max_leaf_si
 		_primitives[pIndex++] = p;
 	}
 
-  if (partitionA.size() == range || partitionB.size() == range) {
-    if (partitionB.size() == range)
-    {
-      swap(partitionA, partitionB);
-    }
-    auto half = partitionA.begin() + range / 2;
-    partitionB.insert(partitionB.end(),
-                        std::make_move_iterator(half),
-                        std::make_move_iterator(partitionA.end()));
-    partitionA.erase(half, partitionA.end());
-	}
-  
+	if (partitionA.size() == range || partitionB.size() == range)
 	{
-		BBox bb;
-		for (size_t i = 0; i < partitionA.size(); ++i) {
-			bb.expand(partitionA[i]->get_bbox());
+		if (partitionB.size() == range)
+		{
+			swap(partitionA, partitionB);
 		}
-		l = new BVHNode(bb, start, partitionA.size());
-	  l->Partition(_primitives, max_leaf_size);
+		auto half = partitionA.begin() + range / 2;
+		partitionB.insert(partitionB.end(),
+						  std::make_move_iterator(half),
+						  std::make_move_iterator(partitionA.end()));
+		partitionA.erase(half, partitionA.end());
 	}
 
 	{
 		BBox bb;
-		for (size_t i = 0; i < partitionB.size(); ++i) {
+		for (size_t i = 0; i < partitionA.size(); ++i)
+		{
+			bb.expand(partitionA[i]->get_bbox());
+		}
+		l = new BVHNode(bb, start, partitionA.size());
+		l->Partition(_primitives, max_leaf_size);
+	}
+
+	{
+		BBox bb;
+		for (size_t i = 0; i < partitionB.size(); ++i)
+		{
 			bb.expand(partitionB[i]->get_bbox());
 		}
 		r = new BVHNode(bb, start + partitionA.size(), partitionB.size());
-	  r->Partition(_primitives, max_leaf_size);
+		r->Partition(_primitives, max_leaf_size);
 	}
+}
+
+bool BVHNode::intersect(const std::vector<Primitive *> &_primitives, const Ray &ray) const
+{
+	double t0, t1;
+	if (!this->bb.intersect(ray, t0, t1))
+	{
+		return false;
+	}
+
+	if (this->isLeaf())
+	{
+		for (auto i = start; i < range + start; ++i)
+		{
+			if (_primitives[i]->intersect(ray))
+			{
+				return true;
+			}
+		}
+	}
+	else
+	{
+		if (l != nullptr)
+		{
+			if (l->intersect(_primitives, ray))
+			{
+				return true;
+			}
+		}
+
+		if (r != nullptr)
+		{
+			if (r->intersect(_primitives, ray))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool BVHNode::intersect(const std::vector<Primitive *> &_primitives, const Ray &ray, Intersection *inter) const
+{
+	double t0, t1;
+	if (!this->bb.intersect(ray, t0, t1))
+	{
+		return false;
+	}
+
+	bool hit = false;
+	if (this->isLeaf())
+	{
+		for (auto i = start; i < range + start; ++i)
+		{
+			if (_primitives[i]->intersect(ray, inter))
+			{
+				hit = true;
+			}
+		}
+
+	}
+	else
+	{
+		if (l != nullptr)
+		{
+			hit = l->intersect(_primitives, ray, inter) || hit;
+		}
+
+		if (r != nullptr)
+		{
+			hit = r->intersect(_primitives, ray, inter) || hit;
+		}
+	}
+	
+	return hit;
 }
 
 }  // namespace StaticScene

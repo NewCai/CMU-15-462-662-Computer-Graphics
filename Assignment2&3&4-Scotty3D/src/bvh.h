@@ -30,6 +30,10 @@ struct BVHNode {
 
   void Partition(std::vector<Primitive *> &_primitives, size_t max_leaf_size);
 
+  bool intersect(const std::vector<Primitive *> &_primitives, const Ray& r) const;
+
+  bool intersect(const std::vector<Primitive *> &_primitives, const Ray& r, Intersection* i) const;
+
   BBox bb;       ///< bounding box of the node
   size_t start;  ///< start index into the primitive list
   size_t range;  ///< range of index into the primitive list
