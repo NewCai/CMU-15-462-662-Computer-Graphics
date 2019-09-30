@@ -462,7 +462,7 @@ Spectrum PathTracer::trace_ray(const Ray &r) {
         const Vector3D& w_in = w2o * dir_to_light;
         if (w_in.z < 0) continue;
 
-          // note that computing dot(n,w_in) is simple
+        // note that computing dot(n,w_in) is simple
         // in surface coordinates since the normal is (0,0,1)
         double cos_theta = w_in.z;
           
@@ -473,31 +473,44 @@ Spectrum PathTracer::trace_ray(const Ray &r) {
         // (Task 4) Construct a shadow ray and compute whether the intersected surface is
         // in shadow. Only accumulate light if not in shadow.
         Ray shadow_ray(hit_p + EPS_D * dir_to_light, dir_to_light, dist_to_light);
-		if (!bvh->intersect(shadow_ray))
-		{
-			L_out += (cos_theta / (num_light_samples * pr)) * f * light_L;
-		}
+        if (!bvh->intersect(shadow_ray))
+        {
+          L_out += (cos_theta / (num_light_samples * pr)) * f * light_L;
+        }
       }
     }
   }
 
-  // TODO (PathTracer):
+  // (PathTracer):
   // ### (Task 5) Compute an indirect lighting estimate using pathtracing with Monte Carlo.
-
-
   // Note that Ray objects have a depth field now; you should use this to avoid
   // traveling down one path forever.
-  
+
+  if (r.depth > max_ray_depth)
+    return L_out;
+
   // (1) randomly select a new ray direction (it may be
   // reflection or transmittence ray depending on
   // surface type -- see BSDF::sample_f()
+  float sur_pdf;
+  Vector3D suf_w_in;
+  auto f = isect.bsdf->sample_f(w_out, &suf_w_in, &sur_pdf);
+  Vector3D sur_ray_dir = o2w * suf_w_in;
 
   // (2) potentially terminate path (using Russian roulette)
+  float terminateProbability = 1.0f - f.illum();
 
-  // (3) evaluate weighted reflectance contribution due 
+  if (((double)rand() / RAND_MAX) < terminateProbability)
+  {
+    return L_out;
+  }
+
+  // (3) evaluate weighted reflectance contribution due
   // to light from this direction
+  Ray matRay(hit_p + EPS_D * sur_ray_dir, sur_ray_dir, (int)r.depth + 1);
+  double cos_theta = suf_w_in.z;
 
-  return L_out;
+  return L_out + f * trace_ray(matRay) * cos_theta * (1 / (sur_pdf * (1 - terminateProbability)));
 }
 
 Spectrum PathTracer::raytrace_pixel(size_t x, size_t y) {
