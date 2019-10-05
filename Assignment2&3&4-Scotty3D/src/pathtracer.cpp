@@ -475,9 +475,10 @@ Spectrum PathTracer::trace_ray(const Ray &r) {
         Ray shadow_ray(hit_p + EPS_D * dir_to_light, dir_to_light, dist_to_light);
         if (!bvh->intersect(shadow_ray))
         {
-          L_out += (cos_theta / (num_light_samples * pr)) * f * light_L;
+          L_out += cos_theta / pr * (f * light_L);
         }
       }
+      L_out = L_out * (1.0f / num_light_samples);
     }
   }
 
@@ -495,8 +496,9 @@ Spectrum PathTracer::trace_ray(const Ray &r) {
   float sur_pdf;
   Vector3D suf_w_in;
   auto f = isect.bsdf->sample_f(w_out, &suf_w_in, &sur_pdf);
+    
   Vector3D sur_ray_dir = o2w * suf_w_in;
-
+  sur_ray_dir.normalize();
   // (2) potentially terminate path (using Russian roulette)
   float terminateProbability = 1.0f - f.illum();
 
@@ -507,10 +509,10 @@ Spectrum PathTracer::trace_ray(const Ray &r) {
 
   // (3) evaluate weighted reflectance contribution due
   // to light from this direction
-  Ray matRay(hit_p + EPS_D * sur_ray_dir, sur_ray_dir, (int)r.depth + 1);
+  Ray sur_ray(hit_p + EPS_D * sur_ray_dir, sur_ray_dir, (int)r.depth + 1);
   double cos_theta = suf_w_in.z;
 
-  return L_out + f * trace_ray(matRay) * cos_theta * (1 / (sur_pdf * (1 - terminateProbability)));
+  return L_out + f * trace_ray(sur_ray) * abs(cos_theta) * (1 / (sur_pdf * (1 - terminateProbability)));
 }
 
 Spectrum PathTracer::raytrace_pixel(size_t x, size_t y) {
